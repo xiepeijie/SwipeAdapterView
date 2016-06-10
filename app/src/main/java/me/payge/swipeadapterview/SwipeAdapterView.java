@@ -20,7 +20,7 @@ import java.util.ArrayList;
 
 /**
  * @author payge
- * 通过ViewGragHelper实现拖拽滑动
+ * 通过ViewDragHelper实现拖拽滑动
  */
 public class SwipeAdapterView extends AdapterView {
 
@@ -116,8 +116,6 @@ public class SwipeAdapterView extends AdapterView {
                     mFlingListener.removeFirstObjectInAdapter();
                 }
                 mActiveCard = null;
-            } else {
-                //adjustChildrenOfUnderTopView(0);
             }
             cLeft = 0;
             cTop = 0;
