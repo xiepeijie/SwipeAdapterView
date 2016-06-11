@@ -1,7 +1,7 @@
 # SwipeAdapterView
 
 SwipeAdapterView is a widget that can slide by ViewDragHelper, it is like Tinder APP, swipe left means dislike, swipe right means like.  
-It is optimize and implement based on the [SwipeCardView](https://github.com/xiepeijie/SwipeCardView), slide through ViewDragHelper, solves the problem of slide and click on events in the SwipeCardView conflict, also increased the child view reuse cached, enhance widget performance.  
+It is optimize and implement based on the [SwipeCardView](https://github.com/xiepeijie/SwipeCardView), slide by ViewDragHelper, solves the problem of slide and click on events in the SwipeCardView conflict, also increased the child view reuse cached, enhance widget performance.  
 You can also see my another project — [SwipeCardView](https://github.com/xiepeijie/SwipeCardView).
 
 ## Screenshot
@@ -13,7 +13,7 @@ You can also see my another project — [SwipeCardView](https://github.com/xiepe
 [@萧雾宇](http://weibo.com/payge)
 
 ## License
-
+```
  Copyright 2016 xiepeijie
 
    Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,3 +27,4 @@ You can also see my another project — [SwipeCardView](https://github.com/xiepe
    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
    See the License for the specific language governing permissions and
    limitations under the License.
+```
