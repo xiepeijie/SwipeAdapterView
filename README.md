@@ -6,7 +6,7 @@ You can also see my another project — [SwipeCardView](https://github.com/xiepe
 
 ## Screenshot
 
-![img](https://github.com/xiepeijie/SwipeAdapterView/blob/master/Screenshot.png)
+![img](https://github.com/xiepeijie/SwipeAdapterView/blob/master/animImage.gif)
 
 ## About me
 
