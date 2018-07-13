@@ -82,22 +82,22 @@ public class MainActivity extends AppCompatActivity implements SwipeAdapterView.
 
     @Override
     public void onItemClicked(View v, Object dataObject) {
-        Log.e("tag", "click 大图");
+        Log.i("tag", "click top view");
     }
 
     @Override
-    public void removeFirstObjectInAdapter() {
+    public void removeFirstObjectInAdapter(View topView) {
         adapter.remove(0);
     }
 
     @Override
     public void onLeftCardExit(Object dataObject) {
-        Log.e("tag", "swipe left");
+        Log.i("tag", "swipe left");
     }
 
     @Override
     public void onRightCardExit(Object dataObject) {
-        Log.e("tag", "swipe right");
+        Log.i("tag", "swipe right");
     }
 
     @Override
@@ -138,7 +138,7 @@ public class MainActivity extends AppCompatActivity implements SwipeAdapterView.
     }
 
 
-    private class InnerAdapter extends BaseAdapter {
+    private class InnerAdapter extends BaseAdapter implements View.OnClickListener {
 
         ArrayList<Talent> objs;
 
@@ -208,12 +208,8 @@ public class MainActivity extends AppCompatActivity implements SwipeAdapterView.
                 holder.eduView = (TextView) convertView.findViewById(R.id.education);
                 holder.workView = (TextView) convertView.findViewById(R.id.work_year);
                 holder.collectView = (CheckedTextView) convertView.findViewById(R.id.favorite);
-                holder.collectView.setOnClickListener(new View.OnClickListener() {
-                    @Override
-                    public void onClick(View v) {
-                        Log.e("tag", "+ 关注");
-                    }
-                });
+                holder.collectView.setTag("关注");
+                holder.collectView.setOnClickListener(this);
             } else {
                 //Log.e("tag", "recycler convertView");
                 holder = (ViewHolder) convertView.getTag();
@@ -242,6 +238,10 @@ public class MainActivity extends AppCompatActivity implements SwipeAdapterView.
             return convertView;
         }
 
+        @Override
+        public void onClick(View v) {
+            Log.i("tag", "onClick: " + v.getTag());
+        }
     }
 
     private static class ViewHolder {

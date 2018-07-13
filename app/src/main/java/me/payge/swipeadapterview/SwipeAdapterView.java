@@ -1,20 +1,24 @@
 package me.payge.swipeadapterview;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.res.TypedArray;
 import android.database.DataSetObserver;
 import android.os.Build;
-import android.support.v4.view.GestureDetectorCompat;
 import android.support.v4.view.ViewCompat;
+import android.support.v4.widget.ViewDragHelper;
 import android.util.AttributeSet;
 import android.util.Log;
-import android.view.GestureDetector;
 import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewPropertyAnimator;
 import android.widget.Adapter;
 import android.widget.AdapterView;
 import android.widget.FrameLayout;
+
 
 import java.util.ArrayList;
 
@@ -43,16 +47,24 @@ public class SwipeAdapterView extends AdapterView {
     private View mActiveCard = null;
     private OnItemClickListener mOnItemClickListener;
 
-    // 支持左右滑
+    // 是否支持拖拽滑动
     public boolean isNeedSwipe = true;
+    // 是否支持左右滑动飞出边界动画
+    public boolean isNeedSwipeAnim = true;
 
     private int initTop;
     private int initLeft;
 
+    private boolean isSwipeAnimRunning;
+    private int cLeft, cTop;
+
     private ViewDragHelper viewDragHelper;
-    private GestureDetectorCompat detector;
+    //private GestureDetectorCompat detector;
+
     private int widthMeasureSpec;
     private int heightMeasureSpec;
+
+    private float x, y;
 
     public SwipeAdapterView(Context context) {
         this(context, null);
@@ -73,11 +85,14 @@ public class SwipeAdapterView extends AdapterView {
         a.recycle();
 
         viewDragHelper = ViewDragHelper.create(this, 4f, callback);
-        detector = new GestureDetectorCompat(context, new ScrollDetector());
     }
 
     public void setIsNeedSwipe(boolean isNeedSwipe) {
         this.isNeedSwipe = isNeedSwipe;
+    }
+
+    public void setIsNeedSwipeAnim(boolean isNeedSwipeAnim) {
+        this.isNeedSwipeAnim = isNeedSwipeAnim;
     }
 
     @Override
@@ -103,9 +118,9 @@ public class SwipeAdapterView extends AdapterView {
         if (viewDragHelper.continueSettling(false)) {
             ViewCompat.postInvalidateOnAnimation(this);
         } else {
-            if (isSwipeRun) {
-                isSwipeRun = false;
-                Log.e("tag", "computeScroll");
+            if (isSwipeAnimRunning) {
+                isSwipeAnimRunning = false;
+                //Log.i("tag", "computeScroll");
                 //adjustChildrenOfUnderTopView(1f);
                 if (mFlingListener != null) {
                     if (mActiveCard.getLeft() > 0) {
@@ -113,7 +128,7 @@ public class SwipeAdapterView extends AdapterView {
                     } else {
                         mFlingListener.onLeftCardExit(mAdapter.getItem(0));
                     }
-                    mFlingListener.removeFirstObjectInAdapter();
+                    mFlingListener.removeFirstObjectInAdapter(mActiveCard);
                 }
                 mActiveCard = null;
             }
@@ -125,10 +140,25 @@ public class SwipeAdapterView extends AdapterView {
     @Override
     public boolean onInterceptTouchEvent(MotionEvent ev) {
         boolean b = viewDragHelper.shouldInterceptTouchEvent(ev);
-        if (ev.getActionMasked()==MotionEvent.ACTION_DOWN) {
+        if (ev.getActionMasked() == MotionEvent.ACTION_DOWN) {
             viewDragHelper.processTouchEvent(ev);
         }
-        return b && detector.onTouchEvent(ev) && isNeedSwipe;
+        float dx = 0, dy = 0;
+        if (ev.getActionMasked() == MotionEvent.ACTION_DOWN) {
+            x = ev.getX();
+            y = ev.getY();
+        } else if (ev.getActionMasked() == MotionEvent.ACTION_MOVE) {
+            dx = Math.abs(ev.getX() - x);
+            dy = Math.abs(ev.getY() - y);
+            x = ev.getX();
+            y = ev.getY();
+        } else if (ev.getActionMasked() == MotionEvent.ACTION_UP) {
+            x = 0;
+            y = 0;
+        }
+        boolean scroll = dx > 4 || dy > 4;
+        //Log.i("tag", String.format("onScroll: %s %s %s", scroll, dx, dy));
+        return b && isNeedSwipe && scroll;
     }
 
     @Override
@@ -164,7 +194,7 @@ public class SwipeAdapterView extends AdapterView {
                 removeViewToCache(1);
                 layoutChildren(1, adapterCount);
             }else{
-                // Reset the UI and set top view listener
+//                Reset the UI and set top view listener
 //                removeAllViewsInLayout();
                 removeViewToCache(0);
                 layoutChildren(0, adapterCount);
@@ -211,7 +241,8 @@ public class SwipeAdapterView extends AdapterView {
     }
 
     private void makeAndAddView(View child, int index) {
-
+        child.setAlpha(1F);
+        child.setTranslationX(0);
         FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) child.getLayoutParams();
         addViewInLayout(child, 0, lp, true);
 
@@ -319,7 +350,9 @@ public class SwipeAdapterView extends AdapterView {
                 mActiveCard.setOnClickListener(new OnClickListener() {
                     @Override
                     public void onClick(View v) {
-                        mOnItemClickListener.onItemClicked(v, mAdapter.getItem(0));
+                        //Log.i("tag", "onClick: top view");
+                        if (mOnItemClickListener != null)
+                            mOnItemClickListener.onItemClicked(v, mAdapter.getItem(0));
                     }
                 });
             }
@@ -389,23 +422,35 @@ public class SwipeAdapterView extends AdapterView {
     }
 
     public interface onFlingListener {
-        void removeFirstObjectInAdapter();
+        void removeFirstObjectInAdapter(View topView);
         void onLeftCardExit(Object dataObject);
         void onRightCardExit(Object dataObject);
         void onAdapterAboutToEmpty(int itemsInAdapter);
         void onScroll(float progress, float scrollXProgress);
     }
 
-    private class ScrollDetector extends GestureDetector.SimpleOnGestureListener {
+    public static class FlingListenerAdapter implements onFlingListener {
 
         @Override
-        public boolean onScroll(MotionEvent e1, MotionEvent e2, float dx, float dy) {
-            return Math.abs(dy) + Math.abs(dx) > 4;
+        public void removeFirstObjectInAdapter(View topView) {
+        }
+
+        @Override
+        public void onLeftCardExit(Object dataObject) {
+        }
+
+        @Override
+        public void onRightCardExit(Object dataObject) {
+        }
+
+        @Override
+        public void onAdapterAboutToEmpty(int itemsInAdapter) {
+        }
+
+        @Override
+        public void onScroll(float progress, float scrollXProgress) {
         }
     }
-
-    boolean isSwipeRun;
-    int cLeft, cTop;
 
     private ViewDragHelper.Callback callback = new ViewDragHelper.Callback() {
 
@@ -436,9 +481,10 @@ public class SwipeAdapterView extends AdapterView {
             float scrollX = 1f * Math.abs(offsetX) / 400;
             progress = Math.min(progress, 1f);
             scrollX = Math.min(scrollX, 1f);
-            //Log.e("tag", "progress = " + progress);
+            //Log.i("tag", "onViewPositionChanged: " + progress);
             adjustChildrenOfUnderTopView(progress);
-            mFlingListener.onScroll(progress, scrollX);
+            if (mFlingListener != null)
+                mFlingListener.onScroll(progress, scrollX);
         }
 
         @Override
@@ -452,19 +498,76 @@ public class SwipeAdapterView extends AdapterView {
             } else if (disY < -offsetTop){
                 endTop -= 2 * offsetTop;
             }
-            if (disX > getWidth() / 4) {
-                isSwipeRun = true;
-                viewDragHelper.smoothSlideViewTo(releasedChild, getWidth() + 200, endTop);
-                invalidate();
-            } else if (disX < -(getWidth() / 4)){
-                isSwipeRun = true;
-                viewDragHelper.smoothSlideViewTo(releasedChild, -getWidth(), endTop);
-                invalidate();
+            if (isNeedSwipeAnim) {
+                if (disX > getWidth() / 4) {
+                    isSwipeAnimRunning = true;
+                    viewDragHelper.smoothSlideViewTo(releasedChild, getWidth() + 200, endTop);
+                    invalidate();
+                } else if (disX < -(getWidth() / 4)) {
+                    isSwipeAnimRunning = true;
+                    viewDragHelper.smoothSlideViewTo(releasedChild, -getWidth(), endTop);
+                    invalidate();
+                } else {
+                    viewDragHelper.smoothSlideViewTo(releasedChild, initLeft, initTop);
+                    invalidate();
+                }
             } else {
                 viewDragHelper.smoothSlideViewTo(releasedChild, initLeft, initTop);
                 invalidate();
             }
         }
     };
+
+    public void swipeLeft() {
+        swipeTopView(1, 280);
+    }
+
+    public void swipeRight() {
+        swipeTopView(0, 280);
+    }
+
+    private void swipeTopView(int direction, int duration) {
+        final View activeView = mActiveCard;
+        if (activeView == null) return;
+        AnimatorListenerAdapter listenerAdapter = new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                super.onAnimationEnd(animation);
+                if (mFlingListener != null) {
+                    mFlingListener.removeFirstObjectInAdapter(activeView);
+                }
+                mActiveCard = null;
+            }
+        };
+        final int maxTranslationX = (int) Math.min(activeView.getWidth() / 4, 200 * getResources().getDisplayMetrics().density);
+        ValueAnimator.AnimatorUpdateListener updateListener = new ValueAnimator.AnimatorUpdateListener() {
+            @Override
+            public void onAnimationUpdate(ValueAnimator animation) {
+                float offsetX = Math.abs(activeView.getTranslationX());
+                //Log.i("tag", "onAnimationUpdate: " + offsetX);
+                float progress = offsetX / maxTranslationX;
+                adjustChildrenOfUnderTopView(progress);
+            }
+        };
+        ViewPropertyAnimator animator = activeView.animate();
+        //right
+        if (direction == 0) {
+            animator.alpha(0)
+                    .translationX(maxTranslationX)
+                    .setDuration(duration)
+                    .setListener(listenerAdapter);
+
+        //left
+        } else if (direction == 1) {
+            animator.alpha(0)
+                    .translationX(-maxTranslationX)
+                    .setDuration(duration)
+                    .setListener(listenerAdapter);
+        }
+        if (Build.VERSION.SDK_INT >= 19) {
+            animator.setUpdateListener(updateListener);
+        }
+        animator.start();
+    }
 
 }
